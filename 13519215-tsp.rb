@@ -50,29 +50,54 @@ class ProgramDinamis
             @visited.push 0
         end
         @cost = Hash.new
-        puts dist(0,1)
     end
     #Mengembalikan jarak antar 2 kota
     def dist(start,target)
         return @matriks_data[start,target]
     end
-    def TSP(n,s)
-        #inisialisasi array visited
-        @visited[s] = 1
-        if n.count()==2 && n[1] != s
-            @cost.merge!({[n,n[1]] => dist(n[1],n[0])})
-            return @cost.fetch([n,n[1]])
-        else
-            for i in 0..n.count()-1
-                for j in 0..n.count()-1
-                    if @visited[i]==0 && j!=i && j!=s
-                        @cost[[n,j]] = min(TSP((n.reject { |a| a == i }), j) + dist(j,i))
-                        @visited[j] = 1
+    def kombin(a, ukuran)
+        arr = []
+        arr = arr + a.combination(ukuran).to_a
+        return arr
+    end
+    def tsp(data,start)
+        n = @jumlah_node
+        @cost.merge!({[start,[start]] => 0})
+        for kunci in 0..n-1
+            @cost.merge!({[kunci,[kunci]] => Float::INFINITY})
+            @cost.merge!({[kunci,[]] => dist(kunci,start)})
+        end
+        for s in 2..n-1
+            for subsets in kombin(data, s)
+                if subsets.include?(start)
+                    @cost.merge!({[start,subsets] => Float::INFINITY})
+                end
+                next if subsets.include?(start)
+                subsets.each do |j|
+                    next if j==start || subsets.include?(start)
+                    csj ||= Float::INFINITY
+                    subsets.each do |i|
+                        next if i==j || i==start || dist(i,j) <= 0
+                        s_j = subsets.reject { |a| a == i }
+                        temp = @cost.fetch([j, s_j.reject { |a| a == j }]) + dist(i,j)
+                        if temp < csj
+                            csj = temp
+                        end
                     end
+                    @cost.merge!({[j,subsets.reject { |a| a == j }] => csj})
                 end
             end
         end
-        return @cost.fetch([n,j])
+        csjfinal ||= Float::INFINITY
+        data_final = data.reject { |b| b == start }
+        data_final.each do |i|
+            s_j = data_final.reject { |a| a == i }
+            temp = @cost.fetch([i,s_j.reject{|s| s==i}]) + dist(start,i)
+            if temp < csjfinal
+                csjfinal = temp
+            end
+        end
+        @cost.merge!({[start,data_final]=>csjfinal})
     end
     #Mendapatkan hash table dari cost
     def getcost()
@@ -81,16 +106,16 @@ class ProgramDinamis
     private :initialize, :dist
 end
 
-input = Input.new("test/input.txt")
+input = Input.new("test/input3.txt")
 #input.printStatus()
 #puts input.getjumlahnode()
-main = ProgramDinamis.new(input.getmatriksdata(), input.getjumlahnode())
-data = (0..(input.getjumlahnode()-1)).to_a
-data = data.map(&:to_i)
+main = ProgramDinamis.new(input.getmatriksdata().map(&:to_i), input.getjumlahnode())
+#print input.getmatriksdata().map(&:to_i)
+data = (0..(input.getjumlahnode()-1)).map(&:to_i)
+#data = data.map(&:to_i)
 #puts data.count()
 #data = data.reject { |a| a == 2 }
-main.TSP(data, 0)
+main.tsp(data, 0)
 alpha =  (main.getcost())
-puts alpha
-puts (alpha[[[0,1],1]])
-print alpha.fetch([[0,1],1])
+print alpha.to_a.last
+#puts alpha.fetch([0, [1, 2, 3]])

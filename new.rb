@@ -64,26 +64,25 @@ class ProgramDinamis
         #s adalah start node
         n = @jumlah_node
         #inisialisasi matriks memo
-        #memo = Matrix.zero(@jumlah_node, 2**@jumlah_node)
-        #memo = Matrix.zero(@jumlah_node, 2**@jumlah_node)
-        @memo = Array.new(@jumlah_node) {Array.new(2**@jumlah_node)}
+        @memo = Array.new(@jumlah_node) {Array.new(1 << @jumlah_node)}
         # m adalah Matrix yang merepresentasikan graph
         m = @matriks_data
-        setup(m, @memo, s, n)
-        solve(m, @memo, s, n)
-        minCost = findMinCost(m, @memo, s, n)
-        tour = findOptimalTour(m, @memo, s, n)
+        setup(m, s, n)
+        solve(m, s, n)
+        minCost = findMinCost(m, s, n)
+        tour = findOptimalTour(m, s, n)
         return [minCost,tour]
         #untuk memanggilnya,cukup masukkan a,b = tsp(m, s)
     end
-    def setup(m, memo, s, n) 
+    def setup(m, s, n) 
         # Inisialisasi tabel memo dengan memasukkan seluruh solusi optimal
         # dari node awal ke seluruh node lain
         for i in 0..n-1
             next if i==s
             # Memasukkan solusi optimal dari node start ke setiap node i
-            hitung = 1 << s | 1 << i
-            memo[i][hitung] = m[s,i]
+            if m[s,i] > 0
+                @memo[i][1 << s | 1 << i] = m[s,i]
+            end
         end 
     end 
     def notIn(i, subset)
@@ -92,70 +91,73 @@ class ProgramDinamis
     end
     def combinations(r, n)
         #Generate seluruh set bit dari size n
-        subsets = []
-        combination(0, 0, r, n, subsets)
-        return subsets
+        @subsets = []
+        combination(0, 0, r, n)
+        return @subsets
     end
-    def combination(set, at, r, n, subsets)
+    def combination(set, at, r, n)
+        elementersisa = n - at
+        if elementersisa < r
+            return
+        end
+        
         if r==0
-            subsets.push(set)
+            @subsets.push(set)
         else
             for i in at..n-1
             #flip bit ke-i
                 set = set | (1<<i)
-                combination(set, i+1, r-1, n, subsets)
+                combination(set, i+1, r-1, n)
 
                 #Backtrack dan flip bit ke i
                 set = set & ~(1 << i)
             end
         end
     end
-    def findMinCost(m, memo, s, n)
+    def findMinCost(m, s, n)
         #State terakhir adalah bit mask dengan Bits n set ke 1
         end_state = (1<<n) - 1
 
         minTourCost ||= Float::INFINITY
 
         for e in 0..n-1
-            next if e==s
-
-            tourCost = memo[e][end_state] + m[e,s]
-            if tourCost < minTourCost
+            next if e==s || m[e,s]<=0 || @memo[e][end_state].nil?
+            #puts ("memo[e][end_state] adalah #{memo[e][end_state]}")
+            tourCost = @memo[e][end_state] + m[e,s]
+            if tourCost < minTourCost && tourCost>0 
                 minTourCost = tourCost
             end
         end
         return minTourCost
     end
-    def findOptimalTour(m, memo, s, n)
+    def findOptimalTour(m, s, n)
         lastIndex = s
+        tour = []
         state = (1 << n) - 1 #end state
         #membuat array tour baru
-        tour = Array.new
-        n+1.times do
-            tour.push 0
-        end
-        for i in (n-1).downto(1)
+        tour.push(s)
+        for i in 1..n-1
             index = -1
-            for j in 0..n
-                next if j==s || notIn(j, state)
+            for j in 0..n-1
+                next if j==s || notIn(j, state) || @memo[index][state].nil? || @memo[j][state].nil?
                 if (index == -1)
                     index = j
                 end
-                prevDist = memo[index][state] + m[index,lastIndex]
-                newDist = memo[j][state] + m[j,lastIndex]
+                prevDist = @memo[index][state] + m[index,lastIndex]
+                newDist = @memo[j][state] + m[j,lastIndex]
                 if newDist < prevDist
                     index = j
                 end
             end
-            tour[i] = index
+            tour.push(index)
             state = state ^ (1 << index)
             lastIndex = index
         end
-        tour[0] = s
-        tour[n] = s
+        tour.push(s)
+        tour = tour.reverse()
         return tour
     end
-    def solve(m, memo, s, n)
+    def solve(m, s, n)
         for r in 3..n
         # fungsi kombinasi akan generate semua set bit sebesar size N dengan
         # bit r yang di set ke 1
@@ -168,13 +170,14 @@ class ProgramDinamis
                     minDist ||= Float::INFINITY
                     # e adalah short untuk node akhir
                     for e in 0..n-1
-                        next if e==s || e==nextnya || notIn(e, subset)
-                        newDistance = memo[e][state] + m[e,nextnya]
+                        next if e==s || e==nextnya || notIn(e, subset) || @memo[e][state].nil? || m[e,nextnya] <=0
+                        newDistance = @memo[e][state] + m[e,nextnya]
                         if newDistance < minDist
                             minDist = newDistance
                         end
                     end
-                    memo[nextnya][subset] = minDist
+                    #puts ("pada subset yang berisi #{subset}, pada nextnya di kombinasi ke #{nextnya}, nilai min distance adalah #{minDist}")
+                    @memo[nextnya][subset] = minDist
                 end
             end
         end
@@ -188,4 +191,7 @@ input = Input.new("test/input3.txt")
 main = ProgramDinamis.new(input.getmatriksdata().map(&:to_i), input.getjumlahnode())
 cost,tour = main.tsp(0)
 puts cost
+for a in 0..tour.count()-1
+    tour[a] = tour[a]+1
+end
 print tour

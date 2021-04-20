@@ -13,7 +13,7 @@ class Input
         @file_data = File.read(namafile).split
         @jumlah_node = Math.sqrt(@file_data.count()).round
     end
-    #membuat matriks darir input filenya
+    #membuat matriks dari input filenya
     def createMatrix()
         #matriks = Matrix.new
         @matriks_data = Matrix.zero(@jumlah_node)
@@ -63,7 +63,7 @@ class ProgramDinamis
     def tsp(data,start)
         n = @jumlah_node
         @cost.merge!({[start,[start]] => 0})
-        for kunci in 0..n-1
+        for kunci in 0..n
             @cost.merge!({[kunci,[kunci]] => Float::INFINITY})
             @cost.merge!({[kunci,[]] => dist(kunci,start)})
         end
@@ -73,18 +73,23 @@ class ProgramDinamis
                     @cost.merge!({[start,subsets] => Float::INFINITY})
                 end
                 next if subsets.include?(start)
-                subsets.each do |j|
-                    next if j==start || subsets.include?(start)
+                subsets.each do |i|
+                    next if i==start || subsets.include?(start)
+                    #Apabila i = start atau i dan start bukan subsetnya, continue
+                    subsets_i = subsets.reject{|a| a == i}
                     csj ||= Float::INFINITY
-                    subsets.each do |i|
-                        next if i==j || i==start || dist(i,j) <= 0
-                        s_j = subsets.reject { |a| a == i }
-                        temp = @cost.fetch([j, s_j.reject { |a| a == j }]) + dist(i,j)
+                    subsets_i.each do |j|
+                        s_j = subsets_i.reject { |b| b == j }
+                        next if j==i || j==start || dist(i,j) <= 0 || s_j.include?(start)
+                        #Penjumlahan dilakukan dengan C(i,j) + f(j,subset-j)
+                        temp =  dist(i,j) + @cost.fetch([j, s_j])
+                        #puts "{c#{i+1},#{j+1} + f(#{j+1},#{s_j}} = {#{dist(i,j)}+#{@cost.fetch([j, s_j])} = #{temp}}"
                         if temp < csj
                             csj = temp
                         end
                     end
-                    @cost.merge!({[j,subsets.reject { |a| a == j }] => csj})
+                    @cost.merge!({[i,subsets_i] => csj})
+                    #puts "{Hasil akhir c#{i+1},#{subsets_i} = #{csj}}"
                 end
             end
         end
@@ -92,7 +97,8 @@ class ProgramDinamis
         data_final = data.reject { |b| b == start }
         data_final.each do |i|
             s_j = data_final.reject { |a| a == i }
-            temp = @cost.fetch([i,s_j.reject{|s| s==i}]) + dist(start,i)
+            temp = dist(start,i) + @cost.fetch([i, s_j])
+            #puts "{c#{start},#{i} + f(#{i},#{s_j}} = {#{dist(start,i)}+#{@cost.fetch([i, s_j])} = #{temp}}"
             if temp < csjfinal
                 csjfinal = temp
             end
@@ -106,16 +112,11 @@ class ProgramDinamis
     private :initialize, :dist
 end
 
+#main
 input = Input.new("test/input3.txt")
-#input.printStatus()
-#puts input.getjumlahnode()
 main = ProgramDinamis.new(input.getmatriksdata().map(&:to_i), input.getjumlahnode())
-#print input.getmatriksdata().map(&:to_i)
 data = (0..(input.getjumlahnode()-1)).map(&:to_i)
-#data = data.map(&:to_i)
-#puts data.count()
-#data = data.reject { |a| a == 2 }
 main.tsp(data, 0)
 alpha =  (main.getcost())
-print alpha.to_a.last
-#puts alpha.fetch([0, [1, 2, 3]])
+kunci = alpha.keys.to_a.last
+puts "Jarak rute terpendek yang dapat dilalui sebesar : #{alpha.fetch(kunci)}"
